@@ -4,10 +4,11 @@
 class GATE
 {
     public:
-        void gateOpen();
-        void gateClose();
+        void gateOpen();            // to open the gate for passenget to enter
+        void gateClose();           // closed position
+        
     private:
-
+        int pos = 0;
 };
 
 

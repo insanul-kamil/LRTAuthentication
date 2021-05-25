@@ -4,10 +4,11 @@
 class WIFI
 {
     public:
-        void initWifi();
-        void reconnect();
+        void initWifi();            // connect to wifi
+        void reconnect();           // loop to reconnect to mqtt broker if disconnected
 
     private:
+        char UID;
 };
 
 

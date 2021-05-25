@@ -16,14 +16,23 @@
 #include "WIFI.h"
 #include "RFID.h"
 #include "GATE.h"
+#include "BUZZZER.h"
 
 /* Global var */
-LiquidCrystal_I2C lcd(0x27);                            // set the lcdi2c address t0 0x27
+unsigned long startMillis;                              //some global variables available anywhere in the program
+unsigned long currentMillis;
+const unsigned long period = 1000;                      //the value is a number of milliseconds
 const char* ssid = "arduino-5GHz@unifi";                // wifi ssid
 const char* password = "fatimahz";                      // wifi password
 const char* mqtt_server = "broker.mqtt-dashboard.com";  // broker that will be connected to esp-01
+const int buzzer = 8;
 const int SS_PIN = 53;
 const int RST_PIN = 5;
+bool access = false;
+int passengerCounter = 0;
+
+
+
 
 /* Callback function header */
 void callback(char* topic, byte* payload, unsigned int length) 
@@ -31,22 +40,30 @@ void callback(char* topic, byte* payload, unsigned int length)
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
+
     for (int i=0;i<length;i++) {
         Serial.print((char)payload[i]);
     }
+
     Serial.println();
 }
 
 /* Instance */
-LCDI2C lcdi2c;                      // for LCDI2C header file
-WIFI wifi;                          // for WiFi header file
 WiFiEspClient espClient;
 PubSubClient client(espClient);
 MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
-Servo gate;
+LiquidCrystal_I2C lcd(0x27);        // set the lcdi2c address t0 0x27
+Servo servo;                        // servo instance
+GATE gate;                          // gate instance(servo header file)
+BUZZER buzz;                        // buzzer instance(buzzer header file)
+LCDI2C lcdi2c;                      // for LCDI2C header file
+WIFI wifi;                          // for WiFi header file
+RFID rfid;                          // for RFID header file
 
 void setup()
 {
+    startMillis = millis();                 // recording start time
+
     Serial.begin(9600);                     // init serial comm 
     Serial1.begin(9600);                    // init serial comm for ESP01
 
@@ -65,8 +82,11 @@ void setup()
 
     client.setCallback(callback);           // set callback when receiving message
 
-    gate.attach(4);                         // init servo at pin 4
- 
+    servo.attach(4);                        // init servo at pin 4
+    gate.gateClose();                       // start pos
+
+    buzz.initBuzzer(buzzer);                //init buzzer
+
     // TODO : add option for debugging for debugging
 }
 
@@ -80,7 +100,18 @@ void loop()
     
     client.loop();
 
+    access = rfid.readCardUID();
 
+    if(access)
+    {
+        buzz.trueSound();
+        gate.gateOpen();
+
+    }else{
+        buzz.falseSound();
+        gate.gateClose();
+
+    }
 
 }
 

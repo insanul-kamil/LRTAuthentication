@@ -1,7 +1,11 @@
 #include "RFID.h"
 #include "main.cpp"
 
-void RFID::detectCard()
+String content = "";
+char content_[15] = "";
+
+
+bool RFID::readCardUID()
 {
     // Look for new cards if there a card, pass this loop
     if ( !mfrc522.PICC_IsNewCardPresent()) 
@@ -14,57 +18,54 @@ void RFID::detectCard()
         return;
     }
 
-}
-
-// TODO :  i need to find a way to get UID as a char, and then get the MFRC522 UID 
-// by using maybe 
-/*
-  Serial.print(F("Card UID:"));
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-  } 
-  Serial.println();
-
-*/
-
-char RFID::getUIDTag()
-{
     //Show UID on serial monitor
     Serial.print("UID tag :");
 
+    String content = "";
+    
     for (byte i = 0; i < mfrc522.uid.size; i++) 
     {
-        // u need to fix here
-
+        Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+        Serial.print(mfrc522.uid.uidByte[i], HEX);
+        content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+        content.concat(String(mfrc522.uid.uidByte[i], HEX));
     }
+
     Serial.println();
 
-    return UID;
-}
-
-bool RFID::isAuthorized()
-{
     Serial.print("Message : ");
-    UID.toUpperCase();
+    content.toUpperCase();
 
-    if ( UID.substring(1) == "BD 31 15 2B") //change here the UID of the card/cards that you want to give access
+    // TODO : check data if same as in the database
+
+    if ( content.substring(1) == "BD 31 15 2B") //change here the UID of the card/cards that you want to give access
     {
         Serial.println("Authorized access");
         Serial.println();
-        
-        stat = true;
 
-        delay(3000);
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Authorized");
+
+        return true;
+
     }
  
     else   
     {
         Serial.println(" Access denied");
-        delay(3000);
 
-        stat = false;
-    
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Denied");
+        
+        return false;
     }
-    return stat;
+}
+
+char* RFID::getUID()
+{
+    content.toCharArray(content_ ,15);
+
+    return content_;
 }

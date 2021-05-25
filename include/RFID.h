@@ -4,13 +4,11 @@
 class RFID
 {
     public:
-        void detectCard();
-        char getUIDTag();
-        bool isAuthorized();
-    private:
-        bool stat;
-        char UID[15];
+        bool readCardUID();             // return bool if theres card detected and can be readed
+        char* getUID();
 
+    private:
+        char content_[15] = "";
 
 };
 
