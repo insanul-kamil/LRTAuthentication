@@ -1,29 +1,45 @@
 #include "WIFI.h"
-#include "main.cpp"
 
 void WIFI::initWifi()
 {
-    delay(10);
+    delay(10);          // optional delay
 
-    // start to connect to a wifi network
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
+    Serial.println("initializing WiFi module...");
 
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("connecting to");
-    lcd.setCursor(0,1);
-    lcd.print(ssid);
+    WiFi.init(&Serial1);
 
-    WiFi.begin(ssid, password);
-
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
+    if (WiFi.status() == WL_NO_SHIELD)              // check for the presence of the shield
+    {
+        Serial.println("WiFi shield not present");
+        Serial.println("restart the program.");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("ESP-01 not");
+        lcd.setCursor(0,1);
+        lcd.print("present");
+        
+        // don't continue
+        while (true);
     }
 
-    Serial.println("");
+    while (statusWiFi != WL_CONNECTED)           // attempt to connect to WiFi network
+    {
+
+        Serial.print("Attempting to connect to WPA SSID: ");
+        Serial.println(ssid);
+
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("connecting to");
+        lcd.setCursor(0,1);
+        lcd.print(ssid);
+    
+        // Connect to WPA/WPA2 network
+        statusWiFi = WiFi.begin(ssid, password);
+
+    }
+
+    Serial.println("...");
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
@@ -33,7 +49,7 @@ void WIFI::initWifi()
     lcd.print("WiFi connected");
 }
 
-void reconnect()            // loop to reconnect to mqtt broker if disconnected
+void WIFI::reconnect()            // loop to reconnect to mqtt broker if disconnected
 {
     // Loop until we're reconnected to mqtt broker
     while (!client.connected()) 

@@ -1,9 +1,8 @@
 #include "RFID.h"
-#include "main.cpp"
+#include "LCDI2C.h"
 
 String content = "";
 char content_[15] = "";
-
 
 bool RFID::readCardUID()
 {
@@ -38,7 +37,7 @@ bool RFID::readCardUID()
 
     // TODO : check data if same as in the database
 
-    if ( content.substring(1) == "BD 31 15 2B") //change here the UID of the card/cards that you want to give access
+    if ( content.substring(1) == "0F 36 FD C7") //change here the UID of the card/cards that you want to give access
     {
         Serial.println("Authorized access");
         Serial.println();

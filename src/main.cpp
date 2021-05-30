@@ -1,15 +1,35 @@
 /* main.cpp made by Muhammad Insanul Kamil bin Syaidul Azam, 21/5/2021 */
 
+/* Pinout*/
+/* ESP-01 */
+/* flashing (programming mode)  normal*/
+/* GND --- gnd                  Vcc --- 3.3V*/
+/* gp2 --- not connected        GND --- GND */
+/* gp0 --- gnd                  Rx --- Tx*/
+/* Rx --- Rx                    Tx --- Tx*/
+/* Rx --- Rx                    Ch_EN --- 3.3v*/
+/* CH_PD --- 3.3v               */
+/* RST --- not connected        */
+/* Vcc --- 3.3v                 */
+/* when gpio-0 is grounded, ESP will be set in programming mode*/
+/* disconnect gpio-0 to let it run normally.*/
+/**/
+/* MFRC522 */
+/**/
+/**/
+/**/
+/**/
+/**/
+/**/
+/**/
+/**/
+
 /* Libraries */
 #include <Arduino.h>
-#include <PubSubClient.h>               // library for publish and subscribe
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>          // library for lcdi2c
-#include <DHT.h>                        // library for recording temp and humidity
-#include <WiFiEsp.h>                    // library for setting up esp 01 as client at arduino frameworks
+#include <Wire.h>                       // pre-installed library
+#include <Adafruit_Sensor.h>            // this library is required to use dht sensor
+#include "DHT.h"                        // library for recording temp and humidity
 #include <SPI.h>                        // spi comm for arduino
-#include <MFRC522.h>                    // library for RFID card reader
-#include <Servo.h>                      // library for controlling servo
 
 /* Header file */
 #include "LCDI2C.h"
@@ -17,48 +37,44 @@
 #include "RFID.h"
 #include "GATE.h"
 #include "BUZZZER.h"
+#include "USER.h"
+
+/* Instance */
+WiFiEspClient espClient;            // esp-01 instance
+PubSubClient client(espClient);     // pubseb client
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
+
+LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);        // set the lcdi2c address t0 0x27
+LCDI2C lcdi2c;                      // for LCDI2C header file
+
+Servo servo;                        // servo instance
+GATE gate;                          // gate instance(servo header file)
+
+BUZZER buzz;                        // buzzer instance(buzzer header file)
+
+WIFI wifi;                          // for WiFi header file
+
+RFID rfid;                          // for RFID header file
 
 /* Global var */
 unsigned long startMillis;                              //some global variables available anywhere in the program
 unsigned long currentMillis;
 const unsigned long period = 1000;                      //the value is a number of milliseconds
-const char* ssid = "arduino-5GHz@unifi";                // wifi ssid
+const char* ssid = "arduino@unifi";                // wifi ssid
 const char* password = "fatimahz";                      // wifi password
 const char* mqtt_server = "broker.mqtt-dashboard.com";  // broker that will be connected to esp-01
-const int buzzer = 8;
-const int SS_PIN = 53;
-const int RST_PIN = 5;
-bool access = false;
+const int buzzer = 8;                                   // buzzer pin
+const int SS_PIN = 53;                                  // mfrc522 ss pin
+const int RST_PIN = 5;                                  // mfrc522 rst pin
+bool access = false;                                    // variable to store user access
 int passengerCounter = 0;
+int statusWiFi = WL_IDLE_STATUS;
 
-
-
-
-/* Callback function header */
-void callback(char* topic, byte* payload, unsigned int length) 
+void callback(char* topic, byte* payload, unsigned intlength)
 {
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
 
-    for (int i=0;i<length;i++) {
-        Serial.print((char)payload[i]);
-    }
-
-    Serial.println();
 }
-
-/* Instance */
-WiFiEspClient espClient;
-PubSubClient client(espClient);
-MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
-LiquidCrystal_I2C lcd(0x27);        // set the lcdi2c address t0 0x27
-Servo servo;                        // servo instance
-GATE gate;                          // gate instance(servo header file)
-BUZZER buzz;                        // buzzer instance(buzzer header file)
-LCDI2C lcdi2c;                      // for LCDI2C header file
-WIFI wifi;                          // for WiFi header file
-RFID rfid;                          // for RFID header file
 
 void setup()
 {
@@ -85,7 +101,7 @@ void setup()
     servo.attach(4);                        // init servo at pin 4
     gate.gateClose();                       // start pos
 
-    buzz.initBuzzer(buzzer);                //init buzzer
+    buzz.initBuzzer(buzzer);                // init buzzer
 
     // TODO : add option for debugging for debugging
 }

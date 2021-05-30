@@ -1,5 +1,4 @@
 #include "BUZZZER.h"
-#include "main.cpp"
 
 void BUZZER::initBuzzer(int buzzerPin)
 {
@@ -19,7 +18,6 @@ void BUZZER::trueSound()
         startMillis = currentMillis;  //IMPORTANT to save the start time of the current LED state.
     
     }
-
 }
 
 void BUZZER::falseSound()

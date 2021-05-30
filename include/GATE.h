@@ -1,6 +1,11 @@
 #ifndef GATE_H
 #define GATE_H
 
+#include <Arduino.h>
+#include <Servo.h>                      // library for controlling servo
+
+extern Servo servo;                     // servo instances
+
 class GATE
 {
     public:
