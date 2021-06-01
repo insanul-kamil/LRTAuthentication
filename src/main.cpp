@@ -30,6 +30,7 @@
 #include <Adafruit_Sensor.h>            // this library is required to use dht sensor
 #include "DHT.h"                        // library for recording temp and humidity
 #include <SPI.h>                        // spi comm for arduino
+#include <Vector.h>                     // library to use vector class
 
 /* Header file */
 #include "LCDI2C.h"
@@ -38,24 +39,6 @@
 #include "GATE.h"
 #include "BUZZZER.h"
 #include "USER.h"
-
-/* Instance */
-WiFiEspClient espClient;            // esp-01 instance
-PubSubClient client(espClient);     // pubseb client
-
-MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
-
-LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);        // set the lcdi2c address t0 0x27
-LCDI2C lcdi2c;                      // for LCDI2C header file
-
-Servo servo;                        // servo instance
-GATE gate;                          // gate instance(servo header file)
-
-BUZZER buzz;                        // buzzer instance(buzzer header file)
-
-WIFI wifi;                          // for WiFi header file
-
-RFID rfid;                          // for RFID header file
 
 /* Global var */
 unsigned long startMillis;                              //some global variables available anywhere in the program
@@ -67,9 +50,34 @@ const char* mqtt_server = "broker.mqtt-dashboard.com";  // broker that will be c
 const int buzzer = 8;                                   // buzzer pin
 const int SS_PIN = 53;                                  // mfrc522 ss pin
 const int RST_PIN = 5;                                  // mfrc522 rst pin
+bool detectedCard = false;                              // variable to store if the card is detected
 bool access = false;                                    // variable to store user access
 int passengerCounter = 0;
 int statusWiFi = WL_IDLE_STATUS;
+const int numUser = 3;
+char *temp_uid;
+char *scannedUID;
+
+/* Instance */
+WiFiEspClient espClient;            // esp-01 instance
+PubSubClient client(espClient);     // pubseb client
+MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
+LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);        // set the lcdi2c address t0 0x27
+LCDI2C lcdi2c;                      // for LCDI2C header file
+Servo servo;                        // servo instance
+GATE gate;                          // gate instance(servo header file)
+BUZZER buzz;                        // buzzer instance(buzzer header file)
+WIFI wifi;                          // for WiFi header file
+RFID rfid;                          // for RFID header file
+
+/* User */
+User user0(0, "kamil", "0F 36 FD C7", 0);
+User user1(1, "Aniq", "test", 1);
+User user2(2, "Iman", "ims", 2);
+User user3(3, "Achik", "ack", 3);
+Vector<char> uid;
+User user[numUser];
+
 
 void callback(char* topic, byte* payload, unsigned intlength)
 {
@@ -89,45 +97,85 @@ void setup()
     SPI.begin();                            // Initiate  SPI bus
     mfrc522.PCD_Init();                     // Initiate MFRC522
 
-    wifi.initWifi();                        // connecting to wifi
+    //wifi.initWifi();                        // connecting to wifi
 
-    client.setServer(mqtt_server, 1883);    // setting mqtt server
+    //client.setServer(mqtt_server, 1883);    // setting mqtt server
 
     // TODO : set callback method after finish setting the mqtt broker
     // maybe set it in the main loop to avoid any error
 
-    client.setCallback(callback);           // set callback when receiving message
+    //client.setCallback(callback);           // set callback when receiving message
 
     servo.attach(4);                        // init servo at pin 4
     gate.gateClose();                       // start pos
 
     buzz.initBuzzer(buzzer);                // init buzzer
 
+    user[0] = user0;
+    user[1] = user1;
+    user[2] = user2;
+    user[3] = user3;
+
+    for(int i = 0; i < numUser + 1; i++)
+    {
+        // put this loop anywhere else because it's not suitable here
+        temp_uid = user[i].getUID();
+        uid.push_back(*temp_uid);
+
+    }
     // TODO : add option for debugging for debugging
+    Serial.println("Initialization complete");
 }
 
 void loop()
 {
-    // if client not connectd to mqtt broker, reconnect.
+    /*// if client not connectd to mqtt broker, reconnect.
     if (!client.connected()) 
     {
         wifi.reconnect();
+        Serial.println("Connecting to broker...");
+    }
+
+    client.loop();*/
+
+    access = false;
+    *scannedUID = '\0';
+
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("   Welcome to");
+    lcd.setCursor(0,1);
+    lcd.print("     LRTJB!");
+
+    detectedCard = rfid.readCard();
+
+    if(detectedCard == true){
+
+        scannedUID = rfid.getUID();
+
+        for(int i = 0; i < numUser + 1; i++)
+        {
+            Serial.println(uid[i]);
+            if(*scannedUID == uid[i])
+            {
+                access = true;
+            }
+        }
     }
     
-    client.loop();
-
-    access = rfid.readCardUID();
-
+    //Serial.println(access);
     if(access)
     {
         buzz.trueSound();
-        gate.gateOpen();
+        //gate.gateOpen();
 
+        // TODO: add func to add data to database
     }else{
         buzz.falseSound();
         gate.gateClose();
 
     }
+
 
 }
 

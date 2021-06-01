@@ -1,11 +1,14 @@
 #include "USER.h"
 
-User::User(int id, char name, char uid,int faces)
+User::User(int id, char name[15], char uid[15],int faces)
 {
     ID = id;
-    NAME = name;
-    UID = UID;
+    //NAME = name;
+    strcpy(NAME, name);
+    strcpy(UID, uid);
+    //UID = uid;
     FACES = faces;
+    
 
 }
 
@@ -18,12 +21,12 @@ int User::getId()
     return ID;
 }
 
-char User::getName()
+char *User::getName()
 {
     return NAME;
 }
 
-char User::getUID()
+char *User::getUID()
 {
     return UID;
 

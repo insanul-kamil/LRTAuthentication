@@ -12,11 +12,12 @@ extern MFRC522 mfrc522;    // Create MFRC522 instance.
 class RFID
 {
     public:
-        bool readCardUID();                 // return bool if theres card detected and can be readed
-        char* getUID();
+        bool readCard();                 // return true if theres card detected and can be readed
+        char *getUID();
 
     private:
-        char content_[15] = "";
+        String content;
+        char content_[15];
 
 };
 

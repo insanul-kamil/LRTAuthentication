@@ -1,26 +1,26 @@
 #include "RFID.h"
 #include "LCDI2C.h"
 
-String content = "";
-char content_[15] = "";
-
-bool RFID::readCardUID()
+bool RFID::readCard()           // return true if there's card detected.
 {
+    memset(content_,0, sizeof(content_));
+    content = "";
+
     // Look for new cards if there a card, pass this loop
     if ( !mfrc522.PICC_IsNewCardPresent()) 
     {
-        return;
+        return false;
     }
+
     // Select one of the cards, if the card are readable, pass this loop
     if ( !mfrc522.PICC_ReadCardSerial()) 
     {
-        return;
+        return false;
     }
+
 
     //Show UID on serial monitor
     Serial.print("UID tag :");
-
-    String content = "";
     
     for (byte i = 0; i < mfrc522.uid.size; i++) 
     {
@@ -32,39 +32,14 @@ bool RFID::readCardUID()
 
     Serial.println();
 
-    Serial.print("Message : ");
     content.toUpperCase();
+    content = content.substring(1);
+    content.toCharArray(content_ ,content.length() + 1);
 
-    // TODO : check data if same as in the database
-
-    if ( content.substring(1) == "0F 36 FD C7") //change here the UID of the card/cards that you want to give access
-    {
-        Serial.println("Authorized access");
-        Serial.println();
-
-        lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("Authorized");
-
-        return true;
-
-    }
- 
-    else   
-    {
-        Serial.println(" Access denied");
-
-        lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("Denied");
-        
-        return false;
-    }
+    return true;
 }
 
-char* RFID::getUID()
+char *RFID::getUID()
 {
-    content.toCharArray(content_ ,15);
-
     return content_;
 }
