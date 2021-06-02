@@ -57,6 +57,7 @@ int statusWiFi = WL_IDLE_STATUS;
 const int numUser = 3;
 char *temp_uid;
 char *scannedUID;
+char *userName;
 
 /* Instance */
 WiFiEspClient espClient;            // esp-01 instance
@@ -71,12 +72,12 @@ WIFI wifi;                          // for WiFi header file
 RFID rfid;                          // for RFID header file
 
 /* User */
-User user0(0, "kamil", "0F 36 FD C7", 0);
+User user0(0, "Insanul Kamil", "0F 36 FD C7\0", 0);
 User user1(1, "Aniq", "test", 1);
 User user2(2, "Iman", "ims", 2);
 User user3(3, "Achik", "ack", 3);
-Vector<char> uid;
 User user[numUser];
+char *uid[numUser + 1]; 
 
 
 void callback(char* topic, byte* payload, unsigned intlength)
@@ -120,7 +121,7 @@ void setup()
     {
         // put this loop anywhere else because it's not suitable here
         temp_uid = user[i].getUID();
-        uid.push_back(*temp_uid);
+        uid[i] = temp_uid;
 
     }
     // TODO : add option for debugging for debugging
@@ -149,21 +150,24 @@ void loop()
 
     detectedCard = rfid.readCard();
 
-    if(detectedCard == true){
+    if(detectedCard){
 
-        scannedUID = rfid.getUID();
+        scannedUID = rfid.getUID();        
 
         for(int i = 0; i < numUser + 1; i++)
         {
-            Serial.println(uid[i]);
-            if(*scannedUID == uid[i])
+            if(strcmp(scannedUID,uid[i]) == 0)
             {
+                userName = user[i].getName();
+                Serial.print("User : ");
+                Serial.print(userName);
                 access = true;
             }
         }
     }
     
-    //Serial.println(access);
+    Serial.println(access);
+
     if(access)
     {
         buzz.trueSound();
@@ -175,7 +179,5 @@ void loop()
         gate.gateClose();
 
     }
-
-
 }
 
