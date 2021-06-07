@@ -84,7 +84,7 @@ FINGERPRINT fingerprint;            // instance for fingerprint
 
 /* User */
 User user0(0, "Insanul Kamil", "0F 36 FD C7", 0);
-User user1(1, "Aniq", "test", 1);
+User user1(1, "Aniq Danial", "test", 1);
 User user2(2, "Iman", "ims", 2);
 User user3(3, "Azhar", "75 9F 7D C6", 3);
 User user[numUser];
