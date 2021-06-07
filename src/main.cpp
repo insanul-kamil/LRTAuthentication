@@ -39,12 +39,13 @@
 #include "GATE.h"
 #include "BUZZZER.h"
 #include "USER.h"
+#include "ACCESS.h"
+#include "FINGERPRINT.h"
 
 /* Global var */
-unsigned long startMillis;                              //some global variables available anywhere in the program
+unsigned long startMillis;
 unsigned long currentMillis;
-const unsigned long period = 1000;                      //the value is a number of milliseconds
-const char* ssid = "arduino@unifi";                // wifi ssid
+const char* ssid = "arduino@unifi";                     // wifi ssid
 const char* password = "fatimahz";                      // wifi password
 const char* mqtt_server = "broker.mqtt-dashboard.com";  // broker that will be connected to esp-01
 const int buzzer = 8;                                   // buzzer pin
@@ -52,12 +53,19 @@ const int SS_PIN = 53;                                  // mfrc522 ss pin
 const int RST_PIN = 5;                                  // mfrc522 rst pin
 bool detectedCard = false;                              // variable to store if the card is detected
 bool access = false;                                    // variable to store user access
-int passengerCounter = 0;
-int statusWiFi = WL_IDLE_STATUS;
-const int numUser = 3;
-char *temp_uid;
-char *scannedUID;
-char *userName;
+int passengerCounter = 0;                               // var storing how many passenger in the lrt
+int statusWiFi = WL_IDLE_STATUS;                        // var storing wifi status (const)
+const int numUser = 4;                                  // var storing total num of user
+char *temp_uid;                                         // temperary var
+char *scannedUID;                                       // var storing card UID
+char *username;                                         // var storing user name if his name exist in the databases
+char buff;                                              // var storing response from serial2
+bool detectedFaces;                                     // var storing if faces detected or not
+int temp_var = 0;
+char *receivedChars;
+char lastChars[30] = "";
+uint8_t fingerprintID;
+bool detectedFinger;
 
 /* Instance */
 WiFiEspClient espClient;            // esp-01 instance
@@ -70,14 +78,18 @@ GATE gate;                          // gate instance(servo header file)
 BUZZER buzz;                        // buzzer instance(buzzer header file)
 WIFI wifi;                          // for WiFi header file
 RFID rfid;                          // for RFID header file
+ACCESS userAccess;                  // instance for ACCESS header file
+User userr;                         // instance for User header file 
+FINGERPRINT fingerprint;            // instance for fingerprint
 
 /* User */
-User user0(0, "Insanul Kamil", "0F 36 FD C7\0", 0);
+User user0(0, "Insanul Kamil", "0F 36 FD C7", 0);
 User user1(1, "Aniq", "test", 1);
 User user2(2, "Iman", "ims", 2);
-User user3(3, "Achik", "ack", 3);
+User user3(3, "Azhar", "75 9F 7D C6", 3);
 User user[numUser];
-char *uid[numUser + 1]; 
+char *uid[numUser];
+char *name[numUser]; 
 
 
 void callback(char* topic, byte* payload, unsigned intlength)
@@ -85,16 +97,63 @@ void callback(char* topic, byte* payload, unsigned intlength)
 
 }
 
+char *faceConformation(int ID)
+{
+    detectedFaces = true;
+    access = true;
+
+    char* temp_name = userAccess.GetUserName(ID, name);   // get user name
+
+    Serial.println();
+    Serial.print(temp_name);
+    Serial.print(" face detected");
+
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print(temp_name);
+    lcd.setCursor(0,1);
+    lcd.print("Face detected");
+
+    return temp_name;
+
+}
+
+char *fingerConformation(int ID)
+{
+    access = true;
+
+    char* temp_name = userAccess.GetUserName(ID, name);   // get user name
+
+    Serial.println();
+    Serial.print(temp_name);
+    Serial.print(" finger detected");
+
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print(temp_name);
+    lcd.setCursor(0,1);
+    lcd.print("finger detected");
+
+    return temp_name;
+}
+
 void setup()
 {
-    startMillis = millis();                 // recording start time
+    Serial.println("Starting initialization...");
 
-    Serial.begin(9600);                     // init serial comm 
+    startMillis = millis();                     // record starting time
+
+    Serial.begin(9600);                     // init serial comm for debugging
     Serial1.begin(9600);                    // init serial comm for ESP01
+    
+    Serial.println("Detecting Fingerprint...");
+    fingerprint.InitFingerprint();          // init fingerprint. if fingerprint sensor not found, loop will stop here
 
+    Serial.println("Starting LCD...");
     lcdi2c.initLCD(16,2);                   // init lcdi2c
     lcd.print("test");
 
+    Serial.println("Starting MFRC522...");
     SPI.begin();                            // Initiate  SPI bus
     mfrc522.PCD_Init();                     // Initiate MFRC522
 
@@ -117,16 +176,22 @@ void setup()
     user[2] = user2;
     user[3] = user3;
 
-    for(int i = 0; i < numUser + 1; i++)
+    Serial.println("User:");
+    for(int i = 0; i < numUser; i++)
     {
         // put this loop anywhere else because it's not suitable here
         temp_uid = user[i].getUID();
         uid[i] = temp_uid;
+        Serial.print(i);
+
+        name[i] = user[i].getName();
+        Serial.println(name[i]);
 
     }
     // TODO : add option for debugging for debugging
-    Serial.println("Initialization complete");
+    Serial.println("Initialization complete\n");
 }
+
 
 void loop()
 {
@@ -140,43 +205,113 @@ void loop()
     client.loop();*/
 
     access = false;
+    detectedFaces = false;
     *scannedUID = '\0';
-
-    lcd.clear();
+    *receivedChars = '\0';
+    fingerprintID = 0;
+    detectedFinger = false;
+    
     lcd.setCursor(0,0);
     lcd.print("   Welcome to");
     lcd.setCursor(0,1);
     lcd.print("     LRTJB!");
 
-    detectedCard = rfid.readCard();
+    userAccess.recvSerial();
+    receivedChars = userAccess.getData();               // get data from serial monitor to be read
+    detectedCard = rfid.readCard();                     // read rfid card. return true if rfid card detected
+    fingerprintID = fingerprint.getFingerprintID();     // get fingerprint id from sensor
 
-    if(detectedCard){
+    if(fingerprintID < 20)
+    {
+        detectedFinger = true;
+        
+    }
 
-        scannedUID = rfid.getUID();        
+    if(strcmp(receivedChars, "") != 0)
+    {
+        detectedFaces = true;
+    }
 
-        for(int i = 0; i < numUser + 1; i++)
+
+    if( detectedFinger && detectedFaces == false && detectedCard == false)
+    {
+        switch (fingerprintID)
         {
-            if(strcmp(scannedUID,uid[i]) == 0)
-            {
-                userName = user[i].getName();
-                Serial.print("User : ");
-                Serial.print(userName);
-                access = true;
-            }
+        case 1:
+            username = fingerConformation(0);
+            break;
+        case 2:
+            username = fingerConformation(1);
+            break;
+        case 3:
+            username = fingerConformation(2);
+            break;
+        case 4:
+            username = fingerConformation(3);
+            break;
+        default:
+            break;
         }
     }
     
-    Serial.println(access);
+    if(detectedFaces && detectedFinger == false && detectedCard == false)
+    {
+        if(strcmp(receivedChars, lastChars))    // loop for detecting duplicate of face id
+        {
+            strcpy(lastChars, receivedChars);
+            
+            // maybe this loop can be changed to forloop?
+            if(strcmp(receivedChars, "1") == 0)         // face recognized = kamil
+            {
+                username = faceConformation(0);
+
+            }else if(strcmp(receivedChars, "2") == 0)
+            {
+                username = faceConformation(1);
+
+            }else if(strcmp(receivedChars, "3") == 0)
+            {
+                username = faceConformation(2);
+
+            }else if(strcmp(receivedChars, "4") == 0)
+            {
+                username = faceConformation(3);
+
+            }
+        }     
+    }
+
+    if(detectedCard && detectedFaces == false && detectedFinger == false)                  //
+    {
+        scannedUID = rfid.getUID();                             // getting uid that have been scanned
+        access = userAccess.userExist(scannedUID, uid, name);   // getting access status
+        username = userAccess.getUserName();                    // getting user name
+
+    }
 
     if(access)
     {
         buzz.trueSound();
+        passengerCounter++;
+        temp_var = 0;
+
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("    Welcome");
+        lcd.setCursor(0,1);
+        lcd.print(username);
+
+        Serial.print("\nAuthorized\n");
+        delay(3000);            // maybe change this delay to a beep or delay with a beep
+        
+        lcd.clear();
         //gate.gateOpen();
 
+        // TODO: push passengerCounter to mqtt 
         // TODO: add func to add data to database
     }else{
-        buzz.falseSound();
         gate.gateClose();
+        temp_var = 0;
 
     }
 }

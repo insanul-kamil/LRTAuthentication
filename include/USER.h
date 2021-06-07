@@ -15,6 +15,7 @@ class User
         
     private:
         int ID;
+        char name[15];
         char NAME[15];
         char UID[15];
         int FACES;

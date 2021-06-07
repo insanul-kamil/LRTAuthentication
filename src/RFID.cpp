@@ -20,7 +20,7 @@ bool RFID::readCard()           // return true if there's card detected.
 
 
     //Show UID on serial monitor
-    Serial.println("Card Detected");
+    Serial.println("\nCard Detected");
     Serial.print("UID tag :");
     
     for (byte i = 0; i < mfrc522.uid.size; i++) 

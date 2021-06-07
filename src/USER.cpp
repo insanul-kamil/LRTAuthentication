@@ -1,15 +1,12 @@
 #include "USER.h"
 
-User::User(int id, char name[15], char uid[15],int faces)
+User::User(int id, char name_[15], char uid[15],int faces)
 {
     ID = id;
-    //NAME = name;
-    strcpy(NAME, name);
-    strcpy(UID, uid);
-    //UID = uid;
+    strcpy(NAME, name_);         // memory overlap happens here
+    strcpy(UID, uid);           // memory overlap happens here
     FACES = faces;
     
-
 }
 
 User::User()
@@ -35,3 +32,4 @@ int User::getFaces()
 {
     return FACES;
 }
+
