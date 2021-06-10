@@ -12,6 +12,7 @@ bool ACCESS::userExist(char *scannedUID,char *uid[4], char *bufname[4])       //
     {
         if(strcmp(scannedUID,uid[i]) == 0)
         {
+            _id = i;
             Serial.print(i);
             userName = bufname[i];
             Serial.print("-User : ");
@@ -21,6 +22,11 @@ bool ACCESS::userExist(char *scannedUID,char *uid[4], char *bufname[4])       //
         }
     }
     return false;
+}
+
+int ACCESS::getUserID()
+{
+    return _id;
 }
 
 char *ACCESS::GetUserName(int id,char *bufname[])

@@ -66,6 +66,7 @@ char *receivedChars;
 char lastChars[30] = "";
 uint8_t fingerprintID;
 bool detectedFinger;
+int id_;
 
 /* Instance */
 WiFiEspClient espClient;            // esp-01 instance
@@ -89,7 +90,8 @@ User user2(2, "Iman", "ims", 2);
 User user3(3, "Azhar", "75 9F 7D C6", 3);
 User user[numUser];
 char *uid[numUser];
-char *name[numUser]; 
+char *name[numUser];
+int enterStatus[numUser];
 
 
 void callback(char* topic, byte* payload, unsigned intlength)
@@ -103,6 +105,9 @@ char *faceConformation(int ID)
     access = true;
 
     char* temp_name = userAccess.GetUserName(ID, name);   // get user name
+    
+    id_ = ID;
+    enterStatus[ID] = 1;
 
     Serial.println();
     Serial.print(temp_name);
@@ -123,6 +128,9 @@ char *fingerConformation(int ID)
     access = true;
 
     char* temp_name = userAccess.GetUserName(ID, name);   // get user name
+    
+    id_ = ID;
+    enterStatus[ID] = 1;
 
     Serial.println();
     Serial.print(temp_name);
@@ -144,7 +152,7 @@ void setup()
     startMillis = millis();                     // record starting time
 
     Serial.begin(9600);                     // init serial comm for debugging
-    Serial1.begin(9600);                    // init serial comm for ESP01
+    Serial1.begin(115000);                    // init serial comm for ESP01
     
     Serial.println("Detecting Fingerprint...");
     fingerprint.InitFingerprint();          // init fingerprint. if fingerprint sensor not found, loop will stop here
@@ -157,19 +165,30 @@ void setup()
     SPI.begin();                            // Initiate  SPI bus
     mfrc522.PCD_Init();                     // Initiate MFRC522
 
-    //wifi.initWifi();                        // connecting to wifi
+    wifi.initWifi();                        // connecting to wifi
 
-    //client.setServer(mqtt_server, 1883);    // setting mqtt server
+    Serial.println("Connecting to MQTT server...");
+    client.setServer(mqtt_server, 1883);    // setting mqtt server
+    client.setCallback(callback);           // set callback when receiving message
 
-    // TODO : set callback method after finish setting the mqtt broker
-    // maybe set it in the main loop to avoid any error
-
-    //client.setCallback(callback);           // set callback when receiving message
+    while (!client.connected())      
+    {
+        if(client.connect("InsanulKamil")) 
+        {
+            Serial.println("connected");
+        }else{
+            Serial.print("failed state ");
+            Serial.print(client.state());
+            delay(2000);
+        }
+    }
 
     servo.attach(4);                        // init servo at pin 4
     gate.gateClose();                       // start pos
 
     buzz.initBuzzer(buzzer);                // init buzzer
+
+    Serial.println("Declaring user...");
 
     user[0] = user0;
     user[1] = user1;
@@ -195,15 +214,16 @@ void setup()
 
 void loop()
 {
-    /*// if client not connectd to mqtt broker, reconnect.
+    // if client not connectd to mqtt broker, reconnect.
     if (!client.connected()) 
     {
         wifi.reconnect();
         Serial.println("Connecting to broker...");
     }
 
-    client.loop();*/
+    client.loop();
 
+    id_ = 0;
     access = false;
     detectedFaces = false;
     *scannedUID = '\0';
@@ -291,28 +311,43 @@ void loop()
 
     if(access)
     {
-        buzz.trueSound();
-        passengerCounter++;
-        temp_var = 0;
+        if(enterStatus[id_] == 1)
+        {
+            buzz.trueSound();
+            passengerCounter--;
 
+            lcd.clear();
+            lcd.setCursor(0,0);
+            lcd.print("Have a nice day");
+            lcd.setCursor(0,1);
+            lcd.print(username);
+
+            Serial.print("\nOUT - Authorized\n");
+            delay(3000);
+        }else
+        {
+            buzz.trueSound();
+            passengerCounter++;
+            temp_var = 0;
+
+            lcd.clear();
+            lcd.setCursor(0,0);
+            lcd.print("    Welcome");
+            lcd.setCursor(0,1);
+            lcd.print(username);
+
+            Serial.print("\nIN - Authorized\n");
+            delay(3000);            // maybe change this delay to a beep or delay with a beep
+            
+            // TODO: push passengerCounter to mqtt 
+            // TODO: add func to add data to database
+        }
+        gate.gateOpen();
         lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("    Welcome");
-        lcd.setCursor(0,1);
-        lcd.print(username);
 
-        Serial.print("\nAuthorized\n");
-        delay(3000);            // maybe change this delay to a beep or delay with a beep
-        
-        lcd.clear();
-        //gate.gateOpen();
-
-        // TODO: push passengerCounter to mqtt 
-        // TODO: add func to add data to database
-    }else{
+    }else
+    {
         gate.gateClose();
         temp_var = 0;
-
     }
 }
-
