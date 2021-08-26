@@ -24,6 +24,7 @@ void FINGERPRINT::InitFingerprint()
 }
 int FINGERPRINT::getFingerprintID() 
 {
+    //if not found a match
     int8_t p = finger.getImage();
     if (p != FINGERPRINT_OK)  return 20;
 

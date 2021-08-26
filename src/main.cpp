@@ -13,7 +13,8 @@
 /* Vcc --- 3.3v                 */
 /* when gpio-0 is grounded, ESP will be set in programming mode*/
 /* disconnect gpio-0 to let it run normally.*/
-/**/
+/* if wifi didn't connect, it maybe because of Serial2 is busy.*/
+/* try to restart the arduino.*/
 /* MFRC522 */
 /**/
 /**/
@@ -23,6 +24,39 @@
 /**/
 /**/
 /**/
+/*  topic to publish
+
+    MONITOR/COMMUNITY
+    - monitor/publish (status)
+    - monitor/humidity (status)
+    - monitor/carbonmonoxide (status)
+            
+    LRT(BOOKING SYSTEM)
+    - lrt/user (order-subscribe)
+    - lrt/passenger/counter (status)
+    - lrt/passenger/status (status)
+    - lrt/user/history/id (table)
+    - lrt/user/history/place (table)
+    - lrt/user/history/time (table)
+    - lrt/order/currentPlace (order-subscribe)
+    - lrt/order/goingPlace (order-subscribe)
+    - lrt/order/confirmation (order-subscribe)
+
+    PARKING MONITOR
+
+    what to publish to mqtt
+    - passenger counter
+
+    what to post to db
+    - passenger history everytime user enter(user, where to where, time)
+    - light usage(optional)
+
+    what we need to callback
+    (maybe switches)
+    - name order 
+    - place order
+    
+    */
 
 /* Libraries */
 #include <Arduino.h>
@@ -43,6 +77,7 @@
 #include "FINGERPRINT.h"
 
 /* Global var */
+#define max_digit 5
 unsigned long startMillis;
 unsigned long currentMillis;
 const char* ssid = "arduino@unifi";                     // wifi ssid
@@ -51,6 +86,7 @@ const char* mqtt_server = "broker.mqtt-dashboard.com";  // broker that will be c
 const int buzzer = 8;                                   // buzzer pin
 const int SS_PIN = 53;                                  // mfrc522 ss pin
 const int RST_PIN = 5;                                  // mfrc522 rst pin
+char server[] = "192.168.0.184";
 bool detectedCard = false;                              // variable to store if the card is detected
 bool access = false;                                    // variable to store user access
 int passengerCounter = 0;                               // var storing how many passenger in the lrt
@@ -67,6 +103,7 @@ char lastChars[30] = "";
 uint8_t fingerprintID;
 bool detectedFinger;
 int id_;
+char num_char[max_digit + sizeof(char)];
 
 /* Instance */
 WiFiEspClient espClient;            // esp-01 instance
@@ -91,11 +128,132 @@ User user3(3, "Azhar", "75 9F 7D C6", 3);
 User user[numUser];
 char *uid[numUser];
 char *name[numUser];
-int enterStatus[numUser];
+// this is for detecting which user who in the lrt atm.
+bool enterStatus[numUser];
+// flag for user
+bool userInput;
+// for storing temp id from mqtt
+int userID = 0;
+int currentPlaceID = 0;
+int goingPlaceID = 0;
+bool confirmationFlag = false;
+bool bookingFlag = false;
 
-
-void callback(char* topic, byte* payload, unsigned intlength)
+// receive and handle mqtt message
+void callback(char* topic, byte* payload, unsigned int length)
 {
+    /*  this loop below can be simplyfied but i dont know why im not doing it
+        topic that we need to use:
+        - lrt/order/user (14 - order-subscribe)
+        - lrt/order/currentPlace (22 - order-subscribe)
+        - lrt/order/goingPlace (20 - order-subscribe)
+        - lrt/order/confirmation (22 - order-subscribe)
+
+    */
+
+    // terminating byte
+    payload[length] = '\0';
+    // converting byte to char
+    char strPayload = (char)payload;
+
+    // detecting if topic is equal to "lrt/order/user", then check for the
+    // payload associted with them confirm the user
+    if (strcmp(topic,"lrt/order/user") ==  0)
+    {
+        userInput = true;
+
+        // if payload length equal 0, it means there is no payload received.
+        // else payload = orderID
+        if (length == 0)
+        {
+            Serial.println("No Payload sent.");
+        }else{
+            userID = (int)payload;
+            // debugging
+            Serial.println(userID);
+
+        }
+    }
+
+    // if topic is equal to "lrt/order/currentPlace", then check the payload.
+    if (strcmp(topic,"lrt/order/currentPlace") ==  0)
+    {
+        userInput = true;
+
+        // if payload length equal 0, it means there is no payload received.
+        // else payload = currentPlaceID
+        if (length == 0)
+        {
+            Serial.println("No Payload sent.");
+        }else{
+            currentPlaceID = (int)payload;
+            // debugging
+            Serial.println(currentPlaceID);
+
+        }
+    }
+
+    // if topic is equal to "lrt/order/goingPlace", then check the payload.
+    if (strcmp(topic,"lrt/order/goingPlace") ==  0)
+    {
+        userInput = true;
+
+        // if payload length equal 0, it means there is no payload received.
+        // else payload = goingPlaceID
+        if (length == 0)
+        {
+            Serial.println("No Payload sent.");
+        }else{
+            goingPlaceID = (int)payload;
+            // debugging
+            Serial.println(goingPlaceID);
+
+        }
+    }
+
+    // if topic is equal to "lrt/order/confirmation", then check the payload.
+    if (strcmp(topic,"lrt/order/confirmation") ==  0)
+    {
+        userInput = true;
+
+        // if payload length equal 0, it means there is no payload received.
+        // else confirmation equal true
+        if (length == 0)
+        {
+            Serial.println("No Payload sent.");
+        }else{
+            confirmationFlag = true;
+            // debugging
+            Serial.println(confirmationFlag);
+        }
+        if(confirmationFlag != false)
+        {
+            confirmationFlag = false;
+        }
+    }
+
+    // making flag for detecting if the form is fully filled
+    // should i make a flag or i shoudl just do it down here?
+    if (userID > -1 && currentPlaceID > -1 && goingPlaceID > -1 && confirmationFlag == true)
+    {
+        bookingFlag = true;
+    }else
+    {
+        bookingFlag = false;
+    }
+    
+    
+    // confirmation loop need to get all the data and process.
+    // check if all the data is received else, booking failed
+    if (bookingFlag == true)
+    {
+        
+    }
+    else
+    {
+        /* code */
+    }
+    
 
 }
 
@@ -149,39 +307,54 @@ void setup()
 {
     Serial.println("Starting initialization...");
 
-    startMillis = millis();                     // record starting time
+    // record starting time
+    startMillis = millis();
 
-    Serial.begin(9600);                     // init serial comm for debugging
-    Serial1.begin(115000);                    // init serial comm for ESP01
+    // init serial comm for debugging
+    Serial.begin(9600);                     
+    // init serial comm for ESP01
+    Serial1.begin(115000);                    
     
+    // init fingerprint. if fingerprint sensor not found, loop will stop here
     Serial.println("Detecting Fingerprint...");
-    fingerprint.InitFingerprint();          // init fingerprint. if fingerprint sensor not found, loop will stop here
+    fingerprint.InitFingerprint();          
 
+    // init lcdi2c
     Serial.println("Starting LCD...");
-    lcdi2c.initLCD(16,2);                   // init lcdi2c
+    lcdi2c.initLCD(16,2);                   
     lcd.print("test");
 
+    // Initiate  SPI bus
     Serial.println("Starting MFRC522...");
-    SPI.begin();                            // Initiate  SPI bus
-    mfrc522.PCD_Init();                     // Initiate MFRC522
+    SPI.begin();
 
-    wifi.initWifi();                        // connecting to wifi
+    // Initiate MFRC522
+    mfrc522.PCD_Init();                     
+
+    // connecting to wifi
+    wifi.initWifi();                        
 
     Serial.println("Connecting to MQTT server...");
-    client.setServer(mqtt_server, 1883);    // setting mqtt server
-    client.setCallback(callback);           // set callback when receiving message
+    // setting mqtt server
+    client.setServer(mqtt_server, 1883);
+    // set callback when receiving message
+    client.setCallback(callback);
 
     while (!client.connected())      
     {
         if(client.connect("InsanulKamil")) 
         {
-            Serial.println("connected");
+            Serial.println("Connected to mqtt broker");
         }else{
-            Serial.print("failed state ");
+            Serial.print("failed to connect");
             Serial.print(client.state());
             delay(2000);
         }
     }
+    // TODO: subscribe and publish to topic to init
+    // I need all the topic to publish here
+    //client.subscribe("lrt/passenger/app/user");
+    //client.publish("outTopic", "hello world");
 
     servo.attach(4);                        // init servo at pin 4
     gate.gateClose();                       // start pos
@@ -207,13 +380,23 @@ void setup()
         Serial.println(name[i]);
 
     }
-    // TODO : add option for debugging for debugging
+
+    // initiating enterStatus array
+    for (int i = 0; i < numUser; i++)
+    {
+       enterStatus[i] = false;
+    }
+    
+    // TODO : add option for debugging
     Serial.println("Initialization complete\n");
+
 }
 
 
 void loop()
 {
+    //  .loop is for callback method.
+    client.loop();
     // if client not connectd to mqtt broker, reconnect.
     if (!client.connected()) 
     {
@@ -232,27 +415,38 @@ void loop()
     detectedFinger = false;
     
     lcd.setCursor(0,0);
-    lcd.print("   Welcome to");
+    lcd.print("   Welcome to  ");
     lcd.setCursor(0,1);
     lcd.print("     LRTJB!");
 
     userAccess.recvSerial();
-    receivedChars = userAccess.getData();               // get data from serial monitor to be read
-    detectedCard = rfid.readCard();                     // read rfid card. return true if rfid card detected
-    fingerprintID = fingerprint.getFingerprintID();     // get fingerprint id from sensor
+    // get data from serial monitor to be read. conforming face detected.
+    receivedChars = userAccess.getData();
+    // read rfid card. return true if rfid card detected
+    detectedCard = rfid.readCard();                    
+    // get fingerprint id from sensor
+    fingerprintID = fingerprint.getFingerprintID();     
 
+    /*  fingerprint id will be retrieved from sensor range of 1 - 19.
+        if fingerprint that detected is below 19, 
+        that means there is user. 
+        20 or above meaning user not exist in database */
     if(fingerprintID < 20)
     {
         detectedFinger = true;
         
     }
 
+    /*  faces id will be retrieved from serial monitor.
+        if number that received from serial monitor is not equal to nothing,
+        it means there is there is user.*/
     if(strcmp(receivedChars, "") != 0)
     {
         detectedFaces = true;
     }
 
-
+    // FINGER
+    // getting detected finger username.
     if( detectedFinger && detectedFaces == false && detectedCard == false)
     {
         switch (fingerprintID)
@@ -272,46 +466,96 @@ void loop()
         default:
             break;
         }
+        id_ = fingerprintID;
+        
+        /*  this loop is for setting the var that will be user in access loop.*/
+        if(enterStatus[id_] != true)
+        {
+            enterStatus[id_] = true;
+        }else{
+            enterStatus[id_] = false;
+        }
     }
     
+    // FACES
+    // getting detected number from serial to get username.
     if(detectedFaces && detectedFinger == false && detectedCard == false)
     {
-        if(strcmp(receivedChars, lastChars))    // loop for detecting duplicate of face id
+        // loop for detecting duplicate of face id
+        // i think there is a problem here
+        if(strcmp(receivedChars, lastChars))    
         {
             strcpy(lastChars, receivedChars);
             
-            // maybe this loop can be changed to forloop?
+            // this loop need to be improve because it's counter intuitive
             if(strcmp(receivedChars, "1") == 0)         // face recognized = kamil
             {
                 username = faceConformation(0);
+                id_ = 0;
 
             }else if(strcmp(receivedChars, "2") == 0)
             {
                 username = faceConformation(1);
+                id_ = 1;
 
             }else if(strcmp(receivedChars, "3") == 0)
             {
                 username = faceConformation(2);
+                id_ = 2;
+
 
             }else if(strcmp(receivedChars, "4") == 0)
             {
                 username = faceConformation(3);
+                id_ = 3;
 
             }
-        }     
+            
+        
+            /*  this loop is for setting the var that will be user in access loop.*/
+            if(enterStatus[id_] != true)
+            {
+                enterStatus[id_] = true;
+            }else{
+                enterStatus[id_] = false;
+            }
+        }
     }
 
-    if(detectedCard && detectedFaces == false && detectedFinger == false)                  //
+    // CARD
+    // ampersand is used too detecting duplicate sensor usage. 
+    // if multiple sensor usage detected at the same time,
+    // it will pass this function.
+    if(detectedCard && detectedFaces == false && detectedFinger == false)
     {
-        scannedUID = rfid.getUID();                             // getting uid that have been scanned
-        access = userAccess.userExist(scannedUID, uid, name);   // getting access status
-        username = userAccess.getUserName();                    // getting user name
+        // getting uid that have been scanned
+        scannedUID = rfid.getUID();                             
+        // getting access status
+        access = userAccess.userExist(scannedUID, uid, name);
+        // getting user name
+        username = userAccess.getUserName();
+        // id_ is used to confirm the user entered the lrt
+        id_ = userAccess.getUserID();
 
+        /*  this loop is for setting the var that will be user in access loop.*/
+        if(enterStatus[id_] != true)
+        {
+            enterStatus[id_] = true;
+        }else{
+            enterStatus[id_] = false;
+        }
     }
 
+    /*  at the access loop, do this:
+        - open gate
+        - counter++
+        - mqtt publish(counter)
+        - update db person history(name)
+        - buzzer sound*/
     if(access)
     {
-        if(enterStatus[id_] == 1)
+        // this loop is to detect the user is out from lrt
+        if(enterStatus[id_] == true)
         {
             buzz.trueSound();
             passengerCounter--;
@@ -336,18 +580,46 @@ void loop()
             lcd.setCursor(0,1);
             lcd.print(username);
 
-            Serial.print("\nIN - Authorized\n");
+            Serial.println("\nIN - Authorized\n");
             delay(3000);            // maybe change this delay to a beep or delay with a beep
             
             // TODO: push passengerCounter to mqtt 
             // TODO: add func to add data to database
         }
-        gate.gateOpen();
-        lcd.clear();
 
+
+        /*  if user detected scanning card or anything,
+            get name,time and post to the log table*/
+        /* this loop is for publishing lrt status */
+        if(passengerCounter == 0)
+        {
+            client.publish("lrt/passenger/status", "Empty");
+
+        }else if (passengerCounter < 3 && passengerCounter > 0)
+        {
+            client.publish("lrt/passenger/status","Uncongested");
+
+        }else if(passengerCounter < 6 && passengerCounter > 4)
+        {
+            client.publish("lrt/passenger/status","Semi-full");
+
+        }else if (passengerCounter < 11 && passengerCounter > 5)
+        {
+            client.publish("lrt/passenger/status","Congested");
+        }
+        lcd.clear();
+    
     }else
     {
         gate.gateClose();
         temp_var = 0;
     }
+
+    // publishing passengerCounter to mqtt
+    sprintf(num_char, "%d", passengerCounter);
+    client.publish("lrt/passenger/counter", num_char);
+    gate.gateOpen();
+
+    // TODO : set ordering card
+
 }

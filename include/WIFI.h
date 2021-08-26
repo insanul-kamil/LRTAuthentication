@@ -11,6 +11,7 @@ extern const char* ssid;                // wifi ssid
 extern const char* password;                      // wifi password
 extern const char* mqtt_server;
 extern int statusWiFi;
+extern char server[];
 
 extern LiquidCrystal_I2C lcd;
 extern WiFiEspClient espClient;
@@ -19,9 +20,12 @@ extern PubSubClient client;
 class WIFI
 {
     public:
-        void initWifi();            // connect to wifi
-        void reconnect();           // loop to reconnect to mqtt broker if disconnected
-
+        // connect to wifi
+        void initWifi();
+        // loop to reconnect to mqtt broker if disconnected
+        void reconnect();
+        // post data to db
+        void postToDB();
     private:
         char UID;
 };

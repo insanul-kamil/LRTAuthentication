@@ -8,7 +8,8 @@ void WIFI::initWifi()
 
     WiFi.init(&Serial1);
 
-    if (WiFi.status() == WL_NO_SHIELD)              // check for the presence of the shield
+    // check for the presence of the shield
+    if (WiFi.status() == WL_NO_SHIELD)              
     {
         Serial.println("WiFi shield not present");
         Serial.println("restart the program.");
@@ -22,9 +23,9 @@ void WIFI::initWifi()
         while (true);
     }
 
-    while (statusWiFi != WL_CONNECTED)           // attempt to connect to WiFi network
+    // attempt to connect to WiFi network
+    while (statusWiFi != WL_CONNECTED)           
     {
-
         Serial.print("Attempting to connect to WPA SSID: ");
         Serial.println(ssid);
 
@@ -41,15 +42,17 @@ void WIFI::initWifi()
 
     Serial.println("...");
     Serial.println("WiFi connected");
-    Serial.println("IP address: ");
+    Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+    Serial.println();
 
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("WiFi connected");
 }
 
-void WIFI::reconnect()            // loop to reconnect to mqtt broker if disconnected
+// loop to reconnect to mqtt broker if disconnected
+void WIFI::reconnect()            
 {
     // Loop until we're reconnected to mqtt broker
     while (!client.connected()) 
@@ -62,12 +65,10 @@ void WIFI::reconnect()            // loop to reconnect to mqtt broker if disconn
         lcd.setCursor(0,1);
         lcd.print("connection");
 
-        // Create a random client ID
-        String clientId = "ESP8266Client-";
-        clientId += String(random(0xffff), HEX);
+        const char * clientId = "InsanulKamil";
 
         // Attempt to connect
-        if (client.connect(clientId.c_str()))
+        if (client.connect(clientId))
         {
             //TODO: update subscribed topic
             Serial.println("connected");
@@ -78,20 +79,44 @@ void WIFI::reconnect()            // loop to reconnect to mqtt broker if disconn
             lcd.setCursor(0,1);
             lcd.print("MQTT broker");
 
-            // Once connected, publish an announcement...
-            client.publish("outTopic", "hello world");
+            //client.publish("outTopic", "hello world");
 
-            // ... and resubscribe
-            client.subscribe("greenBottles/#");
+            // resubscribe
+            client.subscribe("lrt/order/location");
+            client.subscribe("lrt/passenger/app/user");
 
         } else 
         {
-        Serial.print("failed, rc=");
-        Serial.print(client.state());
-        Serial.println(" try again in 5 seconds");
+            Serial.print("failed, rc=");
+            Serial.print(client.state());
+            Serial.println(" try again in 5 seconds");
 
-        // Wait 5 seconds before retrying
-        delay(5000);
+            delay(5000);
         }
     }
+}
+
+void WIFI::postToDB()
+{
+    // Connect to the server (your computer or web page)  
+    if (espClient.connect(server, 80)) 
+    {
+        espClient.print("GET /write_data.php?"); // This
+        espClient.print("value="); // This
+        espClient.print(photocellReading); // And this is what we did in the testing section above. We are making a GET request just like we would from our browser but now with live data from the sensor
+        espClient.println(" HTTP/1.1"); // Part of the GET request
+        espClient.println("Host: 192.168.0.11"); // IMPORTANT: If you are using XAMPP you will have to find out the IP address of your computer and put it here (it is explained in previous article). If you have a web page, enter its address (ie.Host: "www.yourwebpage.com")
+        espClient.println("Connection: close"); // Part of the GET request telling the server that we are over transmitting the message
+        espClient.println(); // Empty line
+        espClient.println(); // Empty line
+        espClient.stop();    // Closing connection to server
+
+    }else 
+    {
+        // If Arduino can't connect to the server (your computer or web page)
+        Serial.println("--> connection failed\n");
+    }
+
+    // WARNING = you need to give a delay before posting it to the database
+    // or else the server might not capture it.
 }

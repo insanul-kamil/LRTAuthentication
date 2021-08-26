@@ -9,6 +9,8 @@ class ACCESS
     public:
         // check if user that scanned his card exist in database. return user name.
         bool userExist(char *scannedUID,char *uid[4],char *bufname[4]);
+        // return user id that have been deteted in user id
+        int getUserID();
         // return user name that have been detected
         char *getUserName();
         // get the user name that have been detected in face rec
@@ -20,6 +22,7 @@ class ACCESS
     private:
         int numUser = 4;
         char *userName;
+        int  _id;
 
         const byte numChars = 32;
         char receivedChars[32];
