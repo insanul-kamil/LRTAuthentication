@@ -43,7 +43,7 @@ void WIFI::initWifi()
     Serial.println("...");
     Serial.println("WiFi connected");
     Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    Serial.print(WiFi.localIP());
     Serial.println();
 
     lcd.clear();
@@ -65,7 +65,7 @@ void WIFI::reconnect()
         lcd.setCursor(0,1);
         lcd.print("connection");
 
-        const char * clientId = "InsanulKamil";
+        const char * clientId = "hasdfkasdfa";
 
         // Attempt to connect
         if (client.connect(clientId))
@@ -78,13 +78,14 @@ void WIFI::reconnect()
             lcd.print("Connected to");
             lcd.setCursor(0,1);
             lcd.print("MQTT broker");
-
-            //client.publish("outTopic", "hello world");
-
+            
             // resubscribe
-            client.subscribe("lrt/order/location");
-            client.subscribe("lrt/passenger/app/user");
-
+            client.subscribe("lrt/order/user");
+            client.subscribe("lrt/order/currentPlace");
+            client.subscribe("lrt/order/goingPlace");
+            client.subscribe("lrt/order/confirmation");
+            client.subscribe("lrt/order/status");
+            
         } else 
         {
             Serial.print("failed, rc=");
@@ -96,19 +97,24 @@ void WIFI::reconnect()
     }
 }
 
-void WIFI::postToDB()
+/*  arguments(char name, char stat)
+    post data to database*/
+void WIFI::postToDB(char name,bool stat)
 {
     // Connect to the server (your computer or web page)  
     if (espClient.connect(server, 80)) 
     {
-        espClient.print("GET /write_data.php?"); // This
-        espClient.print("value="); // This
-        espClient.print(photocellReading); // And this is what we did in the testing section above. We are making a GET request just like we would from our browser but now with live data from the sensor
-        espClient.println(" HTTP/1.1"); // Part of the GET request
-        espClient.println("Host: 192.168.0.11"); // IMPORTANT: If you are using XAMPP you will have to find out the IP address of your computer and put it here (it is explained in previous article). If you have a web page, enter its address (ie.Host: "www.yourwebpage.com")
-        espClient.println("Connection: close"); // Part of the GET request telling the server that we are over transmitting the message
-        espClient.println(); // Empty line
-        espClient.println(); // Empty line
+        espClient.print("GET /write_data.php?");
+        espClient.print("name=");
+        espClient.print(name);
+        espClient.print(";");
+        espClient.print("stat=");
+        espClient.print(stat);
+        espClient.println(" HTTP/1.1"); 
+        espClient.println("Host: 192.168.0.184");
+        espClient.println("Connection: close"); 
+        espClient.println();
+        espClient.println(); 
         espClient.stop();    // Closing connection to server
 
     }else 

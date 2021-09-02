@@ -6,7 +6,7 @@
 /* GND --- gnd                  Vcc --- 3.3V*/
 /* gp2 --- not connected        GND --- GND */
 /* gp0 --- gnd                  Rx --- Tx*/
-/* Rx --- Rx                    Tx --- Tx*/
+/* Rx --- Rx                    Tx --- Rx*/
 /* Rx --- Rx                    Ch_EN --- 3.3v*/
 /* CH_PD --- 3.3v               */
 /* RST --- not connected        */
@@ -27,10 +27,10 @@
 /*  topic to publish
 
     MONITOR/COMMUNITY
-    - monitor/publish (status)
+    - monitor/temp (status)
     - monitor/humidity (status)
-    - monitor/carbonmonoxide (status)
-            
+    - monitor/co2 (status)
+
     LRT(BOOKING SYSTEM)
     - lrt/user (order-subscribe)
     - lrt/passenger/counter (status)
@@ -41,6 +41,8 @@
     - lrt/order/currentPlace (order-subscribe)
     - lrt/order/goingPlace (order-subscribe)
     - lrt/order/confirmation (order-subscribe)
+    - lrt/order/status (16 - order - publish)
+
 
     PARKING MONITOR
 
@@ -80,9 +82,10 @@
 #define max_digit 5
 unsigned long startMillis;
 unsigned long currentMillis;
+const unsigned long period = 200;                         //the value is a number of milliseconds
 const char* ssid = "arduino@unifi";                     // wifi ssid
 const char* password = "fatimahz";                      // wifi password
-const char* mqtt_server = "broker.mqtt-dashboard.com";  // broker that will be connected to esp-01
+const char* mqtt_server = "broker.hivemq.com";  // broker that will be connected to esp-01
 const int buzzer = 8;                                   // buzzer pin
 const int SS_PIN = 53;                                  // mfrc522 ss pin
 const int RST_PIN = 5;                                  // mfrc522 rst pin
@@ -104,6 +107,7 @@ uint8_t fingerprintID;
 bool detectedFinger;
 int id_;
 char num_char[max_digit + sizeof(char)];
+int bufff;
 
 /* Instance */
 WiFiEspClient espClient;            // esp-01 instance
@@ -128,7 +132,8 @@ User user3(3, "Azhar", "75 9F 7D C6", 3);
 User user[numUser];
 char *uid[numUser];
 char *name[numUser];
-// this is for detecting which user who in the lrt atm.
+/* this is for detecting which user who in the lrt atm.
+    1 == in, 0 == out*/
 bool enterStatus[numUser];
 // flag for user
 bool userInput;
@@ -148,14 +153,13 @@ void callback(char* topic, byte* payload, unsigned int length)
         - lrt/order/currentPlace (22 - order-subscribe)
         - lrt/order/goingPlace (20 - order-subscribe)
         - lrt/order/confirmation (22 - order-subscribe)
+        - lrt/order/status (16 - order - publish)
 
     */
 
     // terminating byte
     payload[length] = '\0';
     // converting byte to char
-    char strPayload = (char)payload;
-
     // detecting if topic is equal to "lrt/order/user", then check for the
     // payload associted with them confirm the user
     if (strcmp(topic,"lrt/order/user") ==  0)
@@ -167,12 +171,14 @@ void callback(char* topic, byte* payload, unsigned int length)
         if (length == 0)
         {
             Serial.println("No Payload sent.");
-        }else{
-            userID = (int)payload;
-            // debugging
-            Serial.println(userID);
-
+        }else
+        {
+			bufff = payload[0];
+			userID = bufff - 48;
+			Serial.print(userID);
         }
+
+
     }
 
     // if topic is equal to "lrt/order/currentPlace", then check the payload.
@@ -186,9 +192,9 @@ void callback(char* topic, byte* payload, unsigned int length)
         {
             Serial.println("No Payload sent.");
         }else{
-            currentPlaceID = (int)payload;
-            // debugging
-            Serial.println(currentPlaceID);
+ 			bufff = payload[0];
+			currentPlaceID = bufff - 48;
+			Serial.print(currentPlaceID);
 
         }
     }
@@ -204,9 +210,9 @@ void callback(char* topic, byte* payload, unsigned int length)
         {
             Serial.println("No Payload sent.");
         }else{
-            goingPlaceID = (int)payload;
-            // debugging
-            Serial.println(goingPlaceID);
+			bufff = payload[0];
+			goingPlaceID = bufff - 48;
+			Serial.print(goingPlaceID);
 
         }
     }
@@ -221,40 +227,21 @@ void callback(char* topic, byte* payload, unsigned int length)
         if (length == 0)
         {
             Serial.println("No Payload sent.");
-        }else{
-            confirmationFlag = true;
-            // debugging
-            Serial.println(confirmationFlag);
-        }
-        if(confirmationFlag != false)
+        }else
         {
-            confirmationFlag = false;
+            if (confirmationFlag == true)
+            {
+                confirmationFlag = false;
+            }
+            else if (confirmationFlag == false)
+            {
+                confirmationFlag = true;
+            }
         }
-    }
 
-    // making flag for detecting if the form is fully filled
-    // should i make a flag or i shoudl just do it down here?
-    if (userID > -1 && currentPlaceID > -1 && goingPlaceID > -1 && confirmationFlag == true)
-    {
-        bookingFlag = true;
-    }else
-    {
-        bookingFlag = false;
+                    // debugging
+        Serial.println(confirmationFlag);
     }
-    
-    
-    // confirmation loop need to get all the data and process.
-    // check if all the data is received else, booking failed
-    if (bookingFlag == true)
-    {
-        
-    }
-    else
-    {
-        /* code */
-    }
-    
-
 }
 
 char *faceConformation(int ID)
@@ -339,7 +326,7 @@ void setup()
     client.setServer(mqtt_server, 1883);
     // set callback when receiving message
     client.setCallback(callback);
-
+    // if 
     while (!client.connected())      
     {
         if(client.connect("InsanulKamil")) 
@@ -351,10 +338,21 @@ void setup()
             delay(2000);
         }
     }
-    // TODO: subscribe and publish to topic to init
-    // I need all the topic to publish here
-    //client.subscribe("lrt/passenger/app/user");
-    //client.publish("outTopic", "hello world");
+        /*  this loop below can be simplyfied but i dont know why im not doing it
+        topic that we need to use:
+        - lrt/order/user (14 - order-subscribe)
+        - lrt/order/currentPlace (22 - order-subscribe)
+        - lrt/order/goingPlace (20 - order-subscribe)
+        - lrt/order/confirmation (22 - order-subscribe)
+        - lrt/order/status (16 - order - publish)
+
+    */
+    client.subscribe("lrt/order/user");
+    client.subscribe("lrt/order/currentPlace");
+    client.subscribe("lrt/order/goingPlace");
+    client.subscribe("lrt/order/confirmation");
+    client.subscribe("lrt/order/status");
+
 
     servo.attach(4);                        // init servo at pin 4
     gate.gateClose();                       // start pos
@@ -381,29 +379,21 @@ void setup()
 
     }
 
-    // initiating enterStatus array
-    for (int i = 0; i < numUser; i++)
-    {
-       enterStatus[i] = false;
-    }
     
-    // TODO : add option for debugging
     Serial.println("Initialization complete\n");
 
 }
 
-
+// todo: implement buzzer
 void loop()
 {
-    //  .loop is for callback method.
-    client.loop();
-    // if client not connectd to mqtt broker, reconnect.
+    // if client disconnected to mqtt broker, reconnect.
+
     if (!client.connected()) 
     {
         wifi.reconnect();
-        Serial.println("Connecting to broker...");
     }
-
+    
     client.loop();
 
     id_ = 0;
@@ -413,6 +403,7 @@ void loop()
     *receivedChars = '\0';
     fingerprintID = 0;
     detectedFinger = false;
+    bufff = 0;
     
     lcd.setCursor(0,0);
     lcd.print("   Welcome to  ");
@@ -444,6 +435,31 @@ void loop()
     {
         detectedFaces = true;
     }
+    
+    if(confirmationFlag == true)
+    {
+        // making flag for detecting if the form is fully filled
+        // should i make a flag or i shoudl just do it down here?
+        if (userID > -1 && currentPlaceID > -1 && goingPlaceID > -1 && confirmationFlag == true)
+        {
+            bookingFlag = true;
+        }else{
+            // show status msg here
+            bookingFlag = false;
+        }
+        
+        
+        // confirmation loop need to get all the data and process.
+        // check if all the data is received, else booking failed
+        if (bookingFlag == true)
+        {
+            client.publish("lrt/order/status","Order Successful");
+
+        }
+        else{
+            client.publish("lrt/order/status","Order Failed - fill the form");
+        }
+    }
 
     // FINGER
     // getting detected finger username.
@@ -466,15 +482,20 @@ void loop()
         default:
             break;
         }
-        id_ = fingerprintID;
-        
-        /*  this loop is for setting the var that will be user in access loop.*/
-        if(enterStatus[id_] != true)
+        id_ = fingerprintID - 1;
+
+        if (enterStatus[id_] == true)
         {
-            enterStatus[id_] = true;
-        }else{
             enterStatus[id_] = false;
         }
+        else if (enterStatus[id_] == false)
+        {
+            enterStatus[id_] = true;
+        }
+
+        
+        
+        /*  this loop is for setting the var that will be user in access loop.*/
     }
     
     // FACES
@@ -502,8 +523,6 @@ void loop()
             {
                 username = faceConformation(2);
                 id_ = 2;
-
-
             }else if(strcmp(receivedChars, "4") == 0)
             {
                 username = faceConformation(3);
@@ -511,14 +530,16 @@ void loop()
 
             }
             
-        
-            /*  this loop is for setting the var that will be user in access loop.*/
-            if(enterStatus[id_] != true)
+            if (enterStatus[id_] == true)
             {
-                enterStatus[id_] = true;
-            }else{
                 enterStatus[id_] = false;
             }
+            else if (enterStatus[id_] == false)
+            {
+                enterStatus[id_] = true;
+            }
+            
+            /*  this loop is for setting the var that will be user in access loop.*/
         }
     }
 
@@ -537,13 +558,16 @@ void loop()
         // id_ is used to confirm the user entered the lrt
         id_ = userAccess.getUserID();
 
-        /*  this loop is for setting the var that will be user in access loop.*/
-        if(enterStatus[id_] != true)
+        if (enterStatus[id_] == true)
         {
-            enterStatus[id_] = true;
-        }else{
             enterStatus[id_] = false;
         }
+        else if (enterStatus[id_] == false)
+        {
+            enterStatus[id_] = true;
+        }
+
+        /*  this loop is for setting the var that will be user in access loop.*/
     }
 
     /*  at the access loop, do this:
@@ -555,7 +579,9 @@ void loop()
     if(access)
     {
         // this loop is to detect the user is out from lrt
-        if(enterStatus[id_] == true)
+        // if user in the lrt, enterstat == 0, bye
+        // if user out the lrt, enterstat == 1, hi
+        if(enterStatus[id_] == 0)
         {
             buzz.trueSound();
             passengerCounter--;
@@ -568,7 +594,8 @@ void loop()
 
             Serial.print("\nOUT - Authorized\n");
             delay(3000);
-        }else
+        }
+        if(enterStatus[id_] == 1)
         {
             buzz.trueSound();
             passengerCounter++;
@@ -583,9 +610,13 @@ void loop()
             Serial.println("\nIN - Authorized\n");
             delay(3000);            // maybe change this delay to a beep or delay with a beep
             
-            // TODO: push passengerCounter to mqtt 
-            // TODO: add func to add data to database
+            // what data to post? 
+            // name.
+            //wifi.postToDB(*username, enterStatus[id_]);
+
+
         }
+        Serial.print(id_);
 
 
         /*  if user detected scanning card or anything,
@@ -608,6 +639,9 @@ void loop()
             client.publish("lrt/passenger/status","Congested");
         }
         lcd.clear();
+        
+        sprintf(num_char, "%d", passengerCounter);
+        client.publish("lrt/passenger/counter", num_char);
     
     }else
     {
@@ -615,11 +649,5 @@ void loop()
         temp_var = 0;
     }
 
-    // publishing passengerCounter to mqtt
-    sprintf(num_char, "%d", passengerCounter);
-    client.publish("lrt/passenger/counter", num_char);
-    gate.gateOpen();
-
-    // TODO : set ordering card
 
 }

@@ -24,8 +24,9 @@ class WIFI
         void initWifi();
         // loop to reconnect to mqtt broker if disconnected
         void reconnect();
-        // post data to db
-        void postToDB();
+        /*  arguments(char name, char stat)
+            post data to database*/
+        void postToDB(char name, bool stat);
     private:
         char UID;
 };
