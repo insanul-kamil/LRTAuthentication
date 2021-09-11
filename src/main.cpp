@@ -2,29 +2,83 @@
 
 /* Pinout*/
 /* ESP-01 */
-/* flashing (programming mode)  normal*/
-/* GND --- gnd                  Vcc --- 3.3V*/
-/* gp2 --- not connected        GND --- GND */
-/* gp0 --- gnd                  Rx --- Tx*/
-/* Rx --- Rx                    Tx --- Rx*/
-/* Rx --- Rx                    Ch_EN --- 3.3v*/
-/* CH_PD --- 3.3v               */
-/* RST --- not connected        */
-/* Vcc --- 3.3v                 */
-/* when gpio-0 is grounded, ESP will be set in programming mode*/
-/* disconnect gpio-0 to let it run normally.*/
-/* if wifi didn't connect, it maybe because of Serial2 is busy.*/
-/* try to restart the arduino.*/
-/* MFRC522 */
-/**/
-/**/
-/**/
-/**/
-/**/
-/**/
-/**/
-/**/
-/*  topic to publish
+/*
+    flashing (programming mode)  normal
+    GND --- gnd                  Vcc --- 3.3V
+    gp2 --- not connected        GND --- GND 
+    gp0 --- gnd                  Rx --- Tx
+    Rx --- Rx                    Tx --- Rx
+    Rx --- Rx                    Ch_EN --- 3.3v
+    CH_PD --- 3.3v               
+    RST --- not connected        
+    Vcc --- 3.3v                 
+    when gpio-0 is grounded, ESP will be set in programming mode
+    disconnect gpio-0 to let it run normally.
+    if wifi didn't connect, it maybe because of Serial2 is busy.
+    try to restart the arduino.
+    - when GPIO0 is grounded, esp will be set in programming mode.
+	  disconnect GPIO0 if not updating firmware
+	- if serial monitor did't found the wifi module, check if the Rx-Tx Tx-Rx
+	- if ESP-01 doensnt connect to wifi/hotspot, check spelling for wifi password
+	  it's case sensitive.
+	- if one of this error pop-out:
+		#define MQTT_CONNECTION_TIMEOUT     -4
+		#define MQTT_CONNECTION_LOST        -3
+		#define MQTT_CONNECT_FAILED         -2
+		#define MQTT_DISCONNECTED           -1
+		#define MQTT_CONNECTED               0
+		#define MQTT_CONNECT_BAD_PROTOCOL    1
+		#define MQTT_CONNECT_BAD_CLIENT_ID   2
+		#define MQTT_CONNECT_UNAVAILABLE     3
+		#define MQTT_CONNECT_BAD_CREDENTIALS 4
+		#define MQTT_CONNECT_UNAUTHORIZED    5
+	  check the number and troubleshoot accordingly.
+	- if [WiFiEsp] TIMEOUT: X
+	X = number
+	- the AT firmware pushes the received data over serial without control.
+	  if there is more data then the size of the RX serial buffer and are not
+	  read immediately and fast, the buffer overflows, bytes are lost and don't
+	  arrive in full count. the library waits for the rest of the bytes until timeout.
+	 the number is the count of bytes miising
+	
+	Troubleshooting program
+	- if the mqtt not posting nothing, check you internet connection.
+
+    //LCD-I2C//
+	module	arduino	
+	5v	---- 5v
+	GND ----GND
+	SDA ----pin20(SDA)
+	SCL ----pin21(SCL)
+	- if lcd doensnt output anything, check Vcc wire, and restart. It could
+	  be the power interference.
+
+	//MFRC522//
+	module	arduino
+	SDA	----- D53
+	SCK ----- D52
+	MOSI----- D51
+	MISO----- D50
+	IRQ ----- N/A
+	GND ----- GND
+	RST ----- D5
+	3.3V----- 3.3V
+
+	//ESP-01//
+	module	arduino
+	Vcc	----- 3.3v
+	GND ----- GND
+	Rx  ----- Tx
+	Tx	----- Rx
+	CH_EN---- 3.3v
+
+    // IR sensor //
+    ir1  ------ 42
+    ir2  ------ 43
+    irin ------ 44
+    irout ----- 40
+
+topic to publish
 
     MONITOR/COMMUNITY
     - monitor/temp (status)
